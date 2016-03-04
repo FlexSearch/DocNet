@@ -25,6 +25,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 
@@ -35,6 +36,7 @@ namespace Docnet
 		#region Members
 		private string _targetURLForHTML;
 		private List<Tuple<string, string>> _relativeH2LinksOnPage;		// first element in Tuple is anchor name, second is name for ToC.
+        private static Regex regex = new Regex(@"@@include\((.*)\)", RegexOptions.IgnoreCase);
 		#endregion
 
 
@@ -111,7 +113,19 @@ namespace Docnet
 			{
 				sb.Replace("{{ExtraScript}}", this.ExtraScriptProducerFunc(this));
 			}
-
+            Match m = regex.Match(content);
+            while (m.Success)
+            {
+                if (m.Groups.Count > 1) {
+                    string tagToReplace = m.Groups[0].Value;
+                    string fileName = m.Groups[1].Value;
+                    string filePath = Path.Combine(activeConfig.Source, "_partials", fileName);
+                    if (File.Exists(filePath)) {
+                        content = content.Replace(tagToReplace, File.ReadAllText(filePath));
+                    }
+                }
+                m = m.NextMatch();
+            }
 			// the last action has to be replacing the content marker, so markers in the content which we have in the template as well aren't replaced 
 			sb.Replace("{{Content}}", content);
 			Utils.CreateFoldersIfRequired(destinationFile);

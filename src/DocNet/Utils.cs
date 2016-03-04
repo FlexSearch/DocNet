@@ -25,21 +25,24 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Docnet
 {
 	public static class Utils
 	{
-		/// <summary>
-		/// Converts the markdown to HTML.
-		/// </summary>
-		/// <param name="toConvert">The markdown string to convert.</param>
-		/// <param name="documentPath">The document path (without the document filename).</param>
-		/// <param name="siteRoot">The site root.</param>
-		/// <param name="createdAnchorCollector">The created anchor collector, for ToC sublinks for H2 headers.</param>
-		/// <returns></returns>
-		public static string ConvertMarkdownToHtml(string toConvert, string documentPath, string siteRoot, List<Tuple<string, string>> createdAnchorCollector)
+        private static Regex includeRegex = new Regex(@"@@include\((.*)\)", RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// Converts the markdown to HTML.
+        /// </summary>
+        /// <param name="toConvert">The markdown string to convert.</param>
+        /// <param name="documentPath">The document path (without the document filename).</param>
+        /// <param name="siteRoot">The site root.</param>
+        /// <param name="createdAnchorCollector">The created anchor collector, for ToC sublinks for H2 headers.</param>
+        /// <returns></returns>
+        public static string ConvertMarkdownToHtml(string toConvert, string documentPath, string siteRoot, List<Tuple<string, string>> createdAnchorCollector)
 		{
 			var parser = new MarkdownDeep.Markdown
 						 {
@@ -58,6 +61,31 @@ namespace Docnet
 			return toReturn;
 		}
 
+        /// <summary>
+        /// Process the input for @@include tags and embeds the included content
+        /// into the output.
+        /// </summary>
+        /// <param name="content"></param>
+        /// <param name="partialPath"></param>
+        /// <returns></returns>
+        public static string IncludeProcessor(string content, string partialPath) {
+            Match m = includeRegex.Match(content);
+            while (m.Success)
+            {
+                if (m.Groups.Count > 1)
+                {
+                    string tagToReplace = m.Groups[0].Value;
+                    string fileName = m.Groups[1].Value;
+                    string filePath = Path.Combine(partialPath, fileName);
+                    if (File.Exists(filePath))
+                    {
+                        content = content.Replace(tagToReplace, File.ReadAllText(filePath));
+                    }
+                }
+                m = m.NextMatch();
+            }
+            return content;
+        }
 
 		/// <summary>
 		/// Copies directories and files, eventually recursively. From MSDN.
